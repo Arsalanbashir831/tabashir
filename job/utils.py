@@ -9,7 +9,12 @@ def _embed(texts):
 
 def compute_nlp_recommendations(user, top_k=10):
     """Return list of (job_id, score) sorted desc."""
-    info = user.professional_info or {}
+    info = {
+        "title": user.title,
+        "experience": user.experience_years,
+        "education": user.education,
+        "skills": user.skills,
+    }
     # build one “doc” for the user
     user_doc = ' '.join([
         info.get('title',''),
