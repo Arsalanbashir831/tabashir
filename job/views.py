@@ -175,3 +175,27 @@ class RecommendationView(APIView):
         qs = refresh_user_recommendations(request.user)
         serializer = RecommendationSerializer(qs, many=True)
         return Response(serializer.data)
+
+
+class JobsByRelationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        relation = request.query_params.get("relation")
+        user = request.user
+
+        if relation:
+            relations = JobUserRelation.objects.filter(user=user, relation=relation).select_related("job")
+            jobs = [r.job for r in relations]
+            return Response(JobSerializer(jobs, many=True).data)
+        else:
+            # Group jobs by each relation
+            all_relations = JobUserRelation.objects.filter(user=user).select_related("job")
+            grouped = defaultdict(list)
+
+            for rel in all_relations:
+                grouped[rel.relation].append(rel.job)
+
+            return Response({
+                key: JobSerializer(value, many=True).data for key, value in grouped.items()
+            })

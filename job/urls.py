@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    JobListView, JobDetailView, JobSearchView, SkillListView,
+    JobListView, JobDetailView, JobSearchView, SkillListView, JobsByRelationView,
     SalaryTrendView, MatchingJobsStatsView, GlobalDemandView,
     JobUserRelationView, RecommendationView,
 )
@@ -9,6 +9,7 @@ urlpatterns = [
     path('jobs/', JobListView.as_view(), name='job-list'),
     path('jobs/<int:pk>/', JobDetailView.as_view(), name='job-detail'),
     path('search/', JobSearchView.as_view(), name='job-search'),
+    path('by-relation/', JobsByRelationView.as_view(), name='jobs-by-relation'),
     path('skills/', SkillListView.as_view(), name='skill-list'),
     path('stats/salary-trends/', SalaryTrendView.as_view(), name='salary-trends'),
     path('stats/match-count/', MatchingJobsStatsView.as_view(), name='match-count'),
