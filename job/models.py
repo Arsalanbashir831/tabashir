@@ -35,6 +35,8 @@ class JobUserRelation(models.Model):
         ('offer', 'Offered'),
         ('rejected', 'Rejected'),
         ('accepted', 'Accepted'),
+        ('liked', 'Liked'),
+        ('applied', 'Applied'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

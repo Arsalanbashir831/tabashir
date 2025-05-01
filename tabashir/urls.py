@@ -27,7 +27,8 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('job/', include('job.urls')),
-    path('resumes/', include('resume.urls')),    
+    path('resumes/', include('resume.urls')),
+    path('ai/', include('ai_generator.urls')),
 ]
 
 

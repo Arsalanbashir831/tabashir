@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'user',
     'resume',
     'job',
+    'ai_generator',
     # 'myapp2',
 ]
 
