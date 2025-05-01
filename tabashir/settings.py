@@ -11,33 +11,47 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
-
+import os
+from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ef6)fnq))@-&lr)d_vb3i0tyxjb$)0&wifmfr%z0c(urj$1*$s'
+SECRET_KEY = os.getenv('SECRET')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    # Django default apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Third-party apps
+    'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
+
+    # Your custom apps (add them here as you create them)
+    # 'myapp1',
+    # 'myapp2',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -46,6 +60,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -67,7 +82,65 @@ TEMPLATES = [
     },
 ]
 
+
+CORS_ALLOW_ALL_ORIGINS = True  # Or specify CORS_ALLOWED_ORIGINS
+
 WSGI_APPLICATION = 'tabashir.wsgi.application'
+
+import logging.config
+
+LOGGING_DIR = os.path.join(BASE_DIR, 'logs')
+
+if not os.path.exists(LOGGING_DIR):
+    os.makedirs(LOGGING_DIR)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[{asctime}] [{levelname}] {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        # root logger for Django
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    }
+}
+EXCLUDED_LOG_APPS = [
+    'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
+]
+
+for app in INSTALLED_APPS:
+    if app.startswith('django.') or app in EXCLUDED_LOG_APPS:
+        continue
+    app_log_file = os.path.join(LOGGING_DIR, f'{app}.log')
+    LOGGING['handlers'][f'{app}_file'] = {
+        'level': 'DEBUG',
+        'class': 'logging.FileHandler',
+        'filename': app_log_file,
+        'formatter': 'standard',
+    }
+    LOGGING['loggers'][app] = {
+        'handlers': [f'{app}_file', 'console'],
+        'level': 'DEBUG',
+        'propagate': False,
+    }
+
 
 
 # Database
@@ -75,10 +148,40 @@ WSGI_APPLICATION = 'tabashir.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
+
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+
+if DEBUG:
+    print("DEEPSEEK_API_KEY", DEEPSEEK_API_KEY)
+    
+
+# REST Framework global settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+# JWT settings (optional: set custom expiration here)
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=400),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=2),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
 
 
 # Password validation
