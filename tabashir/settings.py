@@ -28,6 +28,8 @@ SECRET_KEY = os.getenv('SECRET')
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+AUTH_USER_MODEL = 'user.User'
+
 
 
 
@@ -48,7 +50,9 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Your custom apps (add them here as you create them)
-    # 'myapp1',
+    'user',
+    'resume',
+    'job',
     # 'myapp2',
 ]
 
