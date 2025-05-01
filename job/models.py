@@ -1,4 +1,7 @@
 from django.db import models
+from user.models import User
+
+
 
 class Job(models.Model):
     entity = models.TextField(null=True, blank=True)
@@ -21,3 +24,36 @@ class Job(models.Model):
 
     def __str__(self):
         return f"{self.job_title} ({self.entity})"
+
+
+
+class JobUserRelation(models.Model):
+    RELATION_CHOICES = [
+        ('viewed', 'Viewed'),
+        ('bookmark', 'Bookmarked'),
+        ('interview', 'Interview Scheduled'),
+        ('offer', 'Offered'),
+        ('rejected', 'Rejected'),
+        ('accepted', 'Accepted'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    relation = models.CharField(max_length=20, choices=RELATION_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'job', 'relation')
+
+    def __str__(self):
+        return f"{self.user.email} {self.relation} {self.job.job_title}"
+
+class UserRecommendation(models.Model):
+    user      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recommendations')
+    job       = models.ForeignKey(Job,  on_delete=models.CASCADE)
+    score     = models.FloatField()
+    updated   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'job')
+        ordering = ['-score']

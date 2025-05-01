@@ -36,10 +36,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
 
-    # Professional info as JSON (title, skills, tools, experience, education, etc.)
-    professional_info = models.JSONField(default=dict, blank=True)
-
-    # System fields
+    title               = models.CharField(max_length=100, blank=True)
+    experience_years    = models.PositiveIntegerField(null=True, blank=True)
+    education           = models.CharField(max_length=255, blank=True)
+    skills              = models.JSONField(default=list, blank=True)
+    
+    # Default Django fields
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
@@ -51,3 +53,5 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} ({self.email})"
+
+
