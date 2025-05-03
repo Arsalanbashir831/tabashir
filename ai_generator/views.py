@@ -271,7 +271,7 @@ class GenerateSkillQAsView(APIView):
         try:
             resp_data = r.json()
             content_raw = resp_data["choices"][0]["message"]["content"]
-            print("Raw content from AI:", content_raw) # Added for debugging
+            # print("Raw content from AI:", content_raw) # Added for debugging
 
             # --- Start of fix ---
             # Remove potential Markdown code block fences and trim whitespace
@@ -304,5 +304,143 @@ class GenerateSkillQAsView(APIView):
         ):
             return Response({"detail": "Unexpected format from AI", "data": qa_list},
                             status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response(qa_list, status=status.HTTP_200_OK)
+    
+    
+    
+    
+import os
+import json
+import requests
+import PyPDF2
+
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser
+from rest_framework.response import Response
+from rest_framework import status, permissions
+
+SYSTEM_PROMPT = """
+You are an interview coach assistant. You will receive the full text of a candidate's resume (extracted from PDF).
+Generate exactly 10 interview question-and-answer pairs that probe the candidate’s background, skills, and experience as described in the resume.
+Return your output as a JSON array of objects, each with keys:
+  - "question": the question string
+  - "answer": the model answer string
+
+Example INPUT:
+Resume: "John Doe\nExperience: 4 years at Acme Corp...\nSkills: Python, Django..."
+
+Example OUTPUT:
+[
+  {
+    "question": "Given your 4 years at Acme Corp, how did you use Django to build scalable apps?",
+    "answer": "At Acme Corp, I architected Django REST services with caching, scaling endpoints to handle 10k req/sec..."
+  },
+  ...
+]
+Now parse the resume text and output exactly 10 such objects.
+"""
+
+class GenerateQAsFromResumeView(APIView):
+    parser_classes = [MultiPartParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        resume_file = request.FILES.get("resume")
+        if not resume_file:
+            return Response(
+                {"detail": "`resume` (PDF file) is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 1) Extract text from the uploaded PDF
+        try:
+            reader = PyPDF2.PdfReader(resume_file)
+            pages = [page.extract_text() or "" for page in reader.pages]
+            resume_text = "\n".join(pages).strip()
+        except Exception as e:
+            return Response(
+                {"detail": "Failed to parse PDF.", "error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2) Build the prompt
+        user_input = f"Resume: {resume_text}"
+
+        # 3) Call DeepSeek API via requests
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not api_key:
+            return Response(
+                {"detail": "DeepSeek API key not configured."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        url = "https://api.deepseek.com/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": user_input}
+            ],
+            "stream": False
+        }
+
+        try:
+            r = requests.post(url, headers=headers, json=payload, timeout=60)
+        except requests.RequestException as e:
+            return Response(
+                {"detail": "AI service request failed", "error": str(e)},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        if r.status_code != 200:
+            return Response(
+                {"detail": "AI service error", "status": r.status_code, "body": r.text},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        # 4) Parse the JSON array out of the response content
+        try:
+            resp_data = r.json()
+            content_raw = resp_data["choices"][0]["message"]["content"]
+            # print("Raw content from AI:", content_raw) # Added for debugging
+
+            # --- Start of fix ---
+            # Remove potential Markdown code block fences and trim whitespace
+            if content_raw.startswith("```json"):
+                content = content_raw.split("```json\n", 1)[1].rsplit("\n```", 1)[0]
+            elif content_raw.startswith("```"):
+                 content = content_raw.split("```\n", 1)[1].rsplit("\n```", 1)[0]
+            else:
+                 content = content_raw # Assume no fences if standard markers aren't found
+
+            content = content.strip() # Remove leading/trailing whitespace just in case
+            # --- End of fix ---
+
+            print("Cleaned content for JSON parsing:", content) # Added for debugging
+            qa_list = json.loads(content) # Parse the cleaned string
+
+        except (ValueError, KeyError, IndexError, json.JSONDecodeError) as e: # Added IndexError
+            return Response({"detail": "Invalid or malformed JSON from AI",
+                             "error": str(e),
+                             "raw_response_body": r.text, # Include full raw body for debugging
+                             "extracted_content": content_raw if 'content_raw' in locals() else 'N/A' # Show what was extracted
+                             },
+                            status=status.HTTP_502_BAD_GATEWAY)
+        # 5) Validate structure
+        if (
+            not isinstance(qa_list, list) or
+            len(qa_list) != 10 or
+            not all(isinstance(item, dict) for item in qa_list) or
+            not all("question" in item and "answer" in item for item in qa_list)
+        ):
+            return Response(
+                {"detail": "Unexpected format from AI", "data": qa_list},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
 
         return Response(qa_list, status=status.HTTP_200_OK)
