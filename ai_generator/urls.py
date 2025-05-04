@@ -1,4 +1,4 @@
-from .views import GenerateResponse, GenerateInterviewQAView, GenerateSkillQAsView, GenerateQAsFromResumeView
+from .views import GenerateResponse, GenerateInterviewQAView, GenerateSkillQAsView, GenerateQAsFromResumeView, ChatCompletionsView
 from django.urls import path
 
 urlpatterns = [
@@ -9,5 +9,10 @@ urlpatterns = [
       'generate-qa-from-resume/',
       GenerateQAsFromResumeView.as_view(),
       name='generate-qa-from-resume'
+    ),
+    path(
+      'chat/',
+      ChatCompletionsView.as_view(),
+      name='chat-completions'
     ),
 ]

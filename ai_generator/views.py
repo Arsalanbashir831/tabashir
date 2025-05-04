@@ -444,3 +444,71 @@ class GenerateQAsFromResumeView(APIView):
             )
 
         return Response(qa_list, status=status.HTTP_200_OK)
+    
+    
+class ChatCompletionsView(APIView):
+    """
+    POST /ai/chat/
+    {
+      "messages": [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user",   "content": "Hello!"},
+        {"role": "assistant", "content": "Hi there! How can I help?"},
+        {"role": "user",   "content": "Tell me a joke."}
+      ]
+    }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        messages = request.data.get("messages")
+        try:
+            if not isinstance(messages, list) or not messages:
+                return Response(
+                    {"detail": "`messages` must be a non-empty list."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not api_key:
+                return Response(
+                    {"detail": "DeepSeek API key not configured."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            url = "https://api.deepseek.com/chat/completions"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+            payload = {
+                "model": "deepseek-chat",
+                "messages": messages,
+                "stream": False
+            }
+
+            try:
+                resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            except requests.RequestException as e:
+                return Response(
+                    {"detail": "AI service request failed", "error": str(e)},
+                    status=status.HTTP_502_BAD_GATEWAY
+                )
+
+            if resp.status_code != 200:
+                return Response(
+                    {"detail": "AI service error", "status": resp.status_code, "body": resp.text},
+                    status=status.HTTP_502_BAD_GATEWAY
+                )
+
+            data = resp.json()
+            # Return the full completion payload, or just the assistant message:
+            assistant_message = data["choices"][0]["message"]
+
+            return Response({
+                "message": assistant_message,
+                "raw": data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
