@@ -19,13 +19,12 @@ from .utils import refresh_user_recommendations
 # ---------------------------------------------------
 # Basic Job Search with Filters
 # ---------------------------------------------------
-class JobSearchView(generics.ListAPIView):
-    serializer_class = JobSerializer
+class JobSearchView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get_queryset(self):
+    def post(self, request):
         qs = Job.objects.all()
-        params = self.request.query_params
+        params = request.data
 
         if title := params.get('title'):
             qs = qs.filter(job_title__icontains=title)
@@ -42,7 +41,8 @@ class JobSearchView(generics.ListAPIView):
         if date_to := params.get('date_to'):
             qs = qs.filter(job_date__lte=date_to)
 
-        return qs
+        serializer = JobSerializer(qs, many=True)
+        return Response(serializer.data)
 
 
 # ---------------------------------------------------
@@ -67,9 +67,8 @@ class SkillListView(APIView):
 class SalaryTrendView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request):
-        skill = request.query_params.get('skill', '').lower()
-        # last 12 months
+    def post(self, request):
+        skill = request.data.get('skill', '').lower()
         now = datetime.now()
         trends = defaultdict(list)
 
@@ -88,12 +87,13 @@ class SalaryTrendView(APIView):
         # build response: average per month
         result = []
         for i in range(12):
-            month = (now.replace(day=1) - timedelta(days=30*i)).strftime('%Y-%m')
+            month = (now.replace(day=1) - timedelta(days=30 * i)).strftime('%Y-%m')
             vals = trends.get(month, [])
             avg = sum(vals) / len(vals) if vals else 0
             result.append({'month': month, 'average_salary': round(avg, 2)})
 
         return Response(result)
+
 
 
 # ---------------------------------------------------
@@ -102,8 +102,8 @@ class SalaryTrendView(APIView):
 class MatchingJobsStatsView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request):
-        skill = request.query_params.get('skill', '').lower()
+    def post(self, request):
+        skill = request.data.get('skill', '').lower()
         qs = Job.objects.filter(job_description__icontains=skill)
         onsite = qs.filter(job_description__icontains='onsite').count()
         hybrid = qs.filter(job_description__icontains='hybrid').count()
@@ -117,14 +117,15 @@ class MatchingJobsStatsView(APIView):
         })
 
 
+
 # ---------------------------------------------------
 # Global Demand Last Month for a Skill
 # ---------------------------------------------------
 class GlobalDemandView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request):
-        skill = request.query_params.get('skill', '').lower()
+    def post(self, request):
+        skill = request.data.get('skill', '').lower()
         one_month_ago = datetime.now() - timedelta(days=30)
         count = Job.objects.filter(
             job_description__icontains=skill,
@@ -134,6 +135,7 @@ class GlobalDemandView(APIView):
             'skill': skill,
             'demand_last_month': count,
         })
+
 
 
 # ---------------------------------------------------
